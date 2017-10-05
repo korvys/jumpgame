@@ -15,7 +15,7 @@ canvas {
 var myGamePiece;
 
 function startGame() {
-    myGamePiece = new component(350, 700, "animation.png", 75, 100, "image");
+    myGamePiece = new character();
     myGameArea.start();
 }
 
@@ -27,7 +27,7 @@ var myGameArea = {
         this.context = this.canvas.getContext("2d");
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
         this.frameNo = 0;
-        this.interval = setInterval(updateGameArea, 100);
+        this.interval = setInterval(updateGameArea, 10);
         },
     clear : function() {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -37,54 +37,96 @@ var myGameArea = {
     }
 }
 
-function component(width, height, color, x, y, type) {
-    this.type = type;
-    if (type == "image") {
-        this.image = new Image();
-        this.image.src = color;
-    }
+function sprite(sprite_image, width, height, x, y) {
     this.width = width;
     this.height = height;
-    this.speedX = 0;
-    this.speedY = 0;  
-    this.frameNo = 0;
     this.x = x;
     this.y = y;    
-    this.update = function() {
-        ctx = myGameArea.context;
-        if (type == "image") {
-            ctx.drawImage(
-                this.image, 
-                (350*this.frameNo),
-                0,
-                this.width,
-                this.height,
-                this.x, 
-                this.y,
-                this.width, 
-                this.height);
-        } else {
-            ctx.fillStyle = color;
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        }
-        
-        if (this.frameNo >= 3) {
-            this.frameNo = 0;
-            //console.log('reset frame counter');
-        } else {
-            this.frameNo += 1;
-        }
-
+    this.image = sprite_image
+    this.draw = function() {
+        this.image.draw(this.x, this.y, this.width, this.height);
     }
-    this.newPos = function() {
-        this.x += this.speedX;
-        this.y += this.speedY;        
+}
+
+function sprite_image(manifest, offsetx=0, offsety=0) { 
+    this.manifest = manifest
+    this.image = new Image();
+    this.image.src = this.manifest.src;
+    this.width = this.manifest.width;
+    this.height = this.manifest.height;
+    this.animations = manifest.animations;
+
+    this.offsetx = offsetx;
+    this.offsety = offsety;
+
+    this.animation = 'idle';
+    this.frameNo = 0;
+    this.starttime = performance.now();
+/*
+    this.image = new Image();
+    this.image.src = src;
+    this.width = width;
+    this.height = height;
+    this.frames = frames
+    this.frameNo = 0;
+*/
+
+    //this.x = x;
+    //this.y = y; 
+    this.draw = function(x, y, width=this.width, height=this.height) {
+        ctx = myGameArea.context;
+        ctx.drawImage(
+            this.image,                 //Image
+            (this.width * this.getFrameIndex()),  //sx - source frame
+            0,                          //sy
+            this.width,                 //swidth
+            this.height,                //sheight
+            x-this.offsetx,                          //dx
+            y-this.offsety,                          //dy
+            width,                 //dwidth
+            height);               //dheight
+/*    
+        if (this.animations[this.animation].next){
+            this.animation = this.animations[this.animation].next;
+        }
+*/
+    }
+
+    this.getFrameIndex = function() {
+        timestamp = performance.now();
+        playtime = (timestamp - this.starttime)/1000;
+        framecount = playtime * this.animations[this.animation].fps;
+        if (!this.animations[this.animation].loop && framecount >= this.animations[this.animation].frames.length-1) {
+            return this.animations[this.animation].frames[this.animations[this.animation].frames.length-1]-1; //TODO fix this ugliness - 0-indexing animation frames would fix one of the -1
+        }
+        frame = Math.floor(framecount % this.animations[this.animation].frames.length);
+        frameIndex = this.animations[this.animation].frames[frame]-1;
+        return frameIndex;
+    }
+}
+
+function character() {
+    var manifest = {
+        src:            "animation.png",
+        width:          350,
+        height:         700,
+        animations:     {
+            'idle':         {frames: [1, 2, 3, 2, 1, 4, 3, 4, 1, 2, 3, 2], loop: true, fps: 8, next: false},
+            'idle->jump':   {frames: [5, 6], loop: false, fps: 2, next: false},
+            'jump':         {frames: [7], loop: true, fps: 10, next: false},
+            'test':         {frames: [1, 2, 3, 2, 1, 4, 3, 4, 1, 2, 3, 2, 1, 5, 6, 7], loop: false, fps: 10, next: false}
+        }
+    }
+
+    s = new sprite_image(manifest, 175, 700);
+    this.charsprite = new sprite(s, 350, 700, 250, 800);
+    this.update = function() {
+        this.charsprite.draw();
     }
 }
 
 function updateGameArea() {
     myGameArea.clear();
-    myGamePiece.newPos();
     myGamePiece.update();
 }
 
